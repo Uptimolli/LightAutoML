@@ -76,7 +76,7 @@ nbsphinx = "*"
 nbsphinx-link = "*"
 sphinx-autodoc-typehints = "*"
 sphinx = "*"
-ipython = "*"
+ipython = "8.12.0"
 
 # NLP
 gensim = {version = ">=4", optional = true}
