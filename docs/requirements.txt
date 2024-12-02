@@ -7,4 +7,4 @@ ipython==8.12.0
 sphinx-autodoc-typehints
 pandoc
 jupyter
-prompt-toolkit<3.0.0,!=3.0.1,>=2.0.0
+prompt-toolkit<3.0.0
