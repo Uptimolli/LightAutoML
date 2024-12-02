@@ -1,13 +1,10 @@
 ipykernel
-sphinx # extras = ["autdoc", "autosummary", "intersphinx", "napoleon", "viewcode"]
-sphinx-rtd-theme
 nbsphinx
 nbsphinx-link
-doc8
-rstcheck
-pandoc
+sphinx-autodoc-typehints
+sphinx
 ipython
 sphinx-autodoc-typehints
-sphinx-autodoc-typehints==2.0.0
+pandoc
 jupyter
 prompt-toolkit
