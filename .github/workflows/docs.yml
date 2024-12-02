@@ -42,6 +42,7 @@ jobs:
       - name: poetry install
         run: |
           poetry run python scripts/poetry_fix.py -c
+          poetry install -r docs/requirements.txt
           poetry install -E all
 
       - name: make documentations
