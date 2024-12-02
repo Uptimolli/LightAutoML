@@ -3,8 +3,8 @@ nbsphinx
 nbsphinx-link
 sphinx-autodoc-typehints
 sphinx
-ipython==8.12.0
+ipython
 sphinx-autodoc-typehints
 pandoc
 jupyter
-prompt-toolkit<3.0.0
+prompt-toolkit
