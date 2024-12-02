@@ -28,7 +28,7 @@ jobs:
       - name: setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: 3.8
 
       - uses: Gr1N/setup-poetry@v9
         with:
@@ -42,7 +42,7 @@ jobs:
       - name: poetry install
         run: |
           poetry run python scripts/poetry_fix.py -c
-          pip install -r docs/requirements.txt
+          cat docs/requirements.txt | xargs poetry add
           poetry install -E all
 
       - name: make documentations
