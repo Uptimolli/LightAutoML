@@ -2,9 +2,6 @@ ipykernel
 nbsphinx
 nbsphinx-link
 sphinx-autodoc-typehints
-sphinx
-ipython
-sphinx-autodoc-typehints
 pandoc
 jupyter
 prompt-toolkit
