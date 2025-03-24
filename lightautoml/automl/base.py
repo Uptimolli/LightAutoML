@@ -12,6 +12,7 @@ from typing import Sequence
 from ..dataset.base import LAMLDataset
 from ..dataset.utils import concatenate
 from ..pipelines.ml.base import MLPipeline
+from lightautoml.dataset.roles import TargetRole
 from ..reader.base import Reader
 from ..utils.logging import set_stdout_level
 from ..utils.logging import verbosity_to_loglevel
@@ -19,6 +20,7 @@ from ..utils.timer import PipelineTimer
 from ..validation.utils import create_validation_iterator
 from .blend import BestModelSelector
 from .blend import Blender
+from joblib import dump
 
 
 logger = logging.getLogger(__name__)
@@ -157,6 +159,7 @@ class AutoML:
         valid_data: Optional[Any] = None,
         valid_features: Optional[Sequence[str]] = None,
         verbose: int = 0,
+        path_to_save: Optional[str] = None,
     ) -> LAMLDataset:
         """Fit on input data and make prediction on validation part.
 
@@ -176,6 +179,7 @@ class AutoML:
                 >=2 : the information about folds processing is also displayed;
                 >=3 : the hyperparameters optimization process is also displayed;
                 >=4 : the training process for every algorithm is displayed.
+            path_to_save: The path that joblib will use to save the model after fit stage is completed. Use *.joblib format.
 
         Returns:
             Predicted values.
@@ -184,6 +188,23 @@ class AutoML:
         set_stdout_level(verbosity_to_loglevel(verbose))
         self.timer.start()
         train_dataset = self.reader.fit_read(train_data, train_features, roles)
+
+        # Saving class mapping
+        target_col_name = roles["target"] if "target" in roles else roles[TargetRole()]
+        if self.reader.task.name == "binary":
+            self.targets_order = [1]
+        elif self.reader.task.name == "multi:reg":
+            self.targets_order = target_col_name
+        elif self.reader.task.name == "reg":
+            self.targets_order = [target_col_name]
+        elif self.reader.task.name == "multilabel":
+            self.targets_order = target_col_name
+        else:  # multiclass
+            self.targets_order = (
+                sorted(self.reader.class_mapping, key=self.reader.class_mapping.get, reverse=False)
+                if self.reader.class_mapping
+                else None
+            )
 
         assert (
             len(self._levels) <= 1 or train_dataset.folds is not None
@@ -259,12 +280,20 @@ class AutoML:
             else:
                 break
 
-        blended_prediction, last_pipes = self.blender.fit_predict(level_predictions, pipes)
+        blended_prediction, last_pipes = self.blender.fit_predict(level_predictions, pipes, self.targets_order)
         self.levels.append(last_pipes)
 
         self.reader.upd_used_features(remove=list(set(self.reader.used_features) - set(self.collect_used_feats())))
 
         del self._levels
+
+        # saving automl model with joblib
+        if path_to_save is not None:
+            # There is 1 parameter for model save:
+            # "path_to_save" - name of model for saving.
+
+            dump_name = path_to_save if path_to_save.endswith(".joblib") else f"{path_to_save}.joblib"
+            dump(self, dump_name, compress=0)
 
         if self.return_all_predictions:
             return concatenate(level_predictions)

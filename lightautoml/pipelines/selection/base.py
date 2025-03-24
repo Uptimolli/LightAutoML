@@ -1,6 +1,5 @@
 """Base class for selection pipelines."""
 
-from copy import copy
 from copy import deepcopy
 from typing import Any
 from typing import List
@@ -76,7 +75,10 @@ class SelectionPipeline:
 
         """
         assert self._selected_features is not None, "Should be fitted first"
-        return self._selected_features
+        if self.forced_features is None:
+            return sorted(self._selected_features)
+
+        return sorted(set(self._selected_features + self.forced_features))
 
     @selected_features.setter
     def selected_features(self, val: List[str]):
@@ -109,8 +111,7 @@ class SelectionPipeline:
             list of dropped features.
 
         """
-        included = set(self._selected_features)
-        return [x for x in self._in_features if x not in included]
+        return [x for x in self._in_features if x not in set(self._selected_features)]
 
     def __init__(
         self,
@@ -138,6 +139,7 @@ class SelectionPipeline:
         self._selected_features = None
         self._in_features = None
         self.mapped_importances = None
+        self.forced_features = None
 
     def perform_selection(self, train_valid: Optional[TrainValidIterator]):
         """Select features from train-valid iterator.
@@ -198,16 +200,11 @@ class SelectionPipeline:
             New dataset with selected features only.
 
         """
-        selected_features = copy(self.selected_features)
-
         # Add forced features
-        selected_features = selected_features + [
-            feature
-            for feature in dataset.features
-            if dataset.roles[feature].force_input and (feature not in selected_features)
-        ]
+        if self.forced_features is None:
+            self.forced_features = [feature for feature in dataset.features if dataset.roles[feature].force_input]
 
-        return dataset[:, selected_features]
+        return dataset[:, self.selected_features]
 
     def map_raw_feature_importances(self, raw_importances: Series):
         """Calculate input feature importances.

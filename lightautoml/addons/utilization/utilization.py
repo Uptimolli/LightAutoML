@@ -23,6 +23,8 @@ from ...utils.logging import set_stdout_level
 from ...utils.logging import verbosity_to_loglevel
 from ...utils.timer import PipelineTimer
 
+from joblib import dump
+
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +228,7 @@ class TimeUtilization:
         valid_features: Optional[Sequence[str]] = None,
         verbose: int = 0,
         log_file: str = None,
+        path_to_save: Optional[str] = None,
     ) -> LAMLDataset:
         """Fit and get prediction on validation dataset.
 
@@ -253,6 +256,7 @@ class TimeUtilization:
                 if cannot be inferred from `valid_data`.
             verbose: Verbose.
             log_file: Log filename.
+            path_to_save: The path that joblib will use to save the model after fit stage is completed. Use *.joblib format.
 
         Returns:
             Dataset with predictions. Call ``.data`` to get predictions array.
@@ -271,6 +275,7 @@ class TimeUtilization:
 
         amls = [[] for _ in range(len(self.configs_list))]
         aml_preds = [[] for _ in range(len(self.configs_list))]
+        class_mapping = None
         n_ms = 0
         n_cfg = 0
         upd_state_val = 0
@@ -320,6 +325,15 @@ class TimeUtilization:
                     log_file=log_file,
                 )
 
+                current_class_mapping = automl.reader.class_mapping
+
+                if class_mapping is None:
+                    class_mapping = current_class_mapping
+                else:
+                    assert (
+                        class_mapping == current_class_mapping
+                    ), "class_mappings are different for different AutoML for some reason."
+
                 logger.info("=" * 50)
 
                 amls[n_cfg].append(MLPipeForAutoMLWrapper.from_automl(automl))
@@ -348,7 +362,7 @@ class TimeUtilization:
 
         for preds, pipes in zip(aml_preds, amls):
             inner_blend = deepcopy(self.inner_blend)
-            val_pred, inner_pipe = inner_blend.fit_predict(preds, pipes)
+            val_pred, inner_pipe = inner_blend.fit_predict(preds, pipes, class_mapping=class_mapping)
             inner_pipe = [x.ml_algos[0].models[0] for x in inner_pipe]
 
             inner_preds.append(val_pred)
@@ -356,10 +370,22 @@ class TimeUtilization:
 
         # outer blend - blend of blends
         if not self.return_all_predictions:
-            val_pred, self.outer_pipes = self.outer_blend.fit_predict(inner_preds, inner_pipes)
+            val_pred, self.outer_pipes = self.outer_blend.fit_predict(
+                inner_preds, inner_pipes, class_mapping=class_mapping
+            )
         else:
             val_pred = concatenate(inner_preds)
             self.outer_pipes = inner_pipes
+
+        self.targets_order = sorted(class_mapping, key=class_mapping.get, reverse=False) if class_mapping else None
+
+        # saving automl model with joblib
+        if path_to_save is not None:
+            # There is 1 parameter for model save:
+            # "path_to_save" - name of model for saving.
+
+            dump_name = path_to_save if path_to_save.endswith(".joblib") else f"{path_to_save}.joblib"
+            dump(self, dump_name, compress=0)
 
         return val_pred
 

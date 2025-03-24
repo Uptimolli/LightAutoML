@@ -73,26 +73,15 @@ add_logging_level("INFO3", INFO3)
 
 
 class LoggerStream(io.IOBase):
-    def __init__(self, logger, verbose_eval=100) -> None:
+    def __init__(self, logger) -> None:
         super().__init__()
         self.logger = logger
-        self.verbose_eval = verbose_eval
         self.counter = 1
 
     def write(self, message):
         if message == "\n":
             return
-        iter_num = message.split("\t")[0]
-        if (iter_num == "[1]") or (iter_num == "0:") or ((iter_num[-1] != "]") and (iter_num[-1] != ":")):
-            self.logger.info3(message.rstrip())
-            return
-
-        if self.counter < self.verbose_eval - 1:
-            self.logger.debug(message.rstrip())
-            self.counter += 1
-        else:
-            self.logger.info3(message.rstrip())
-            self.counter = 0
+        self.logger.info3(message.rstrip())
 
 
 def verbosity_to_loglevel(verbosity: int, extended=True):
@@ -120,7 +109,7 @@ def verbosity_to_loglevel(verbosity: int, extended=True):
 
 def get_stdout_level():
     for handler in _logger.handlers:
-        if type(handler) == logging.StreamHandler:
+        if isinstance(handler, logging.StreamHandler):
             return handler.level
     return _logger.getEffectiveLevel()
 
@@ -131,7 +120,7 @@ def set_stdout_level(level):
     has_console_handler = False
 
     for handler in _logger.handlers:
-        if type(handler) == logging.StreamHandler:
+        if isinstance(handler, logging.StreamHandler):
             if handler.level == level:
                 has_console_handler = True
             else:
@@ -150,7 +139,7 @@ def add_filehandler(filename: str, level=logging.DEBUG):
         has_file_handler = False
 
         for handler in _logger.handlers:
-            if type(handler) == logging.FileHandler:
+            if isinstance(handler, logging.FileHandler):
                 if handler.baseFilename == filename or handler.baseFilename == os.path.join(os.getcwd(), filename):
                     has_file_handler = True
                 else:
@@ -172,7 +161,7 @@ def add_filehandler(filename: str, level=logging.DEBUG):
             _logger.addHandler(file_handler)
     else:
         for handler in _logger.handlers:
-            if type(handler) == logging.FileHandler:
+            if isinstance(handler, logging.FileHandler):
                 _logger.handlers.remove(handler)
 
 

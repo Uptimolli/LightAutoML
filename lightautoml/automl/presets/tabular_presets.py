@@ -30,7 +30,6 @@ from ...ml_algo.boost_xgb import BoostXGB
 from ...ml_algo.dl_model import TorchModel
 from ...ml_algo.linear_sklearn import LinearLBFGS
 from ...ml_algo.random_forest import RandomForestSklearn
-from ...ml_algo.tuning.optuna import DLOptunaTuner
 from ...ml_algo.tuning.optuna import OptunaTuner
 from ...pipelines.features.lgb_pipeline import LGBAdvancedPipeline
 from ...pipelines.features.lgb_pipeline import LGBSeqSimpleFeatures
@@ -444,7 +443,7 @@ class TabularAutoML(AutoMLPreset):
 
             if tuned:
                 nn_model.set_prefix("Tuned")
-                nn_tuner = DLOptunaTuner(
+                nn_tuner = OptunaTuner(
                     n_trials=model_params["tuning_params"]["max_tuning_iter"],
                     timeout=model_params["tuning_params"]["max_tuning_time"],
                     fit_on_holdout=model_params["tuning_params"]["fit_on_holdout"],
@@ -684,6 +683,7 @@ class TabularAutoML(AutoMLPreset):
         valid_features: Optional[Sequence[str]] = None,
         log_file: str = None,
         verbose: int = 0,
+        path_to_save: Optional[str] = None,
     ) -> NumpyDataset:
         """Fit and get prediction on validation dataset.
 
@@ -714,6 +714,7 @@ class TabularAutoML(AutoMLPreset):
                 >=4 : the training process for every algorithm is displayed;
             log_file: Filename for writing logging messages. If log_file is specified,
                 the messages will be saved in a the file. If the file exists, it will be overwritten.
+            path_to_save: The path that joblib will use to save the model after fit stage is completed. Use *.joblib format.
 
         Returns:
             Dataset with predictions. Call ``.data`` to get predictions array.
@@ -735,7 +736,14 @@ class TabularAutoML(AutoMLPreset):
         if self.is_time_series:
             train = {"seq": {"seq0": train}}
 
-        oof_pred = super().fit_predict(train, roles=roles, cv_iter=cv_iter, valid_data=valid_data, verbose=verbose)
+        oof_pred = super().fit_predict(
+            train,
+            roles=roles,
+            cv_iter=cv_iter,
+            valid_data=valid_data,
+            verbose=verbose,
+            path_to_save=path_to_save,
+        )
 
         return cast(NumpyDataset, oof_pred)
 
@@ -1074,7 +1082,7 @@ class TabularUtilizedAutoML(TimeUtilization):
             used_feats.update(pipe.ml_algos[0].models[0][0].collect_used_feats())
 
         fi = calc_feats_permutation_imps(
-            self,
+            automl,
             list(used_feats),
             data,
             automl.reader.target,

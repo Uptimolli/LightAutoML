@@ -81,6 +81,7 @@ def calc_feats_permutation_imps(model, used_feats, data, target, metric, silent=
 
     # convert holdout data to LAMLDataset
     data = model.reader.read(data, add_array_attrs=False)
+    used_feats_leveled[0] = [feature for feature in data.features if feature not in target]
 
     # iterate through all the levels
     for level in sorted(used_feats_leveled.keys()):

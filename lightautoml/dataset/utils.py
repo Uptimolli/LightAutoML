@@ -1,5 +1,7 @@
 """Utilities for working with the structure of a dataset."""
 
+import copy
+
 from typing import Callable
 from typing import Dict
 from typing import Optional
@@ -37,11 +39,11 @@ def roles_parser(init_roles: Dict[Union[ColumnRole, str], Union[str, Sequence[st
         feat = init_roles[r]
 
         if isinstance(feat, str):
-            roles[feat] = r
+            roles[feat] = copy.deepcopy(r)
 
         else:
             for f in init_roles[r]:
-                roles[f] = r
+                roles[f] = copy.deepcopy(r)
 
     return roles
 
@@ -116,7 +118,7 @@ def numpy_or_pandas_and_seq_concat(
     assert len(datasets) == 2, "should be 1 sequential and 1 plain dataset"
     # get 1 numpy / pandas dataset
     for n, dataset in enumerate(datasets):
-        if type(dataset) == SeqNumpyPandasDataset:
+        if isinstance(dataset, SeqNumpyPandasDataset):
             seq_dataset = dataset
         else:
             plain_dataset = dataset

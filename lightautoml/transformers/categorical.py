@@ -9,11 +9,13 @@ from typing import cast
 
 import numpy as np
 
+from pandas import __version__ as pandas_version
 from pandas import DataFrame
 from pandas import Series
 from pandas import concat
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.murmurhash import murmurhash3_32
+from sklearn import __version__ as sklearn_version
 
 from ..dataset.base import LAMLDataset
 from ..dataset.np_pd_dataset import CSRSparseDataset
@@ -153,14 +155,21 @@ class LabelEncoder(LAMLTransformer):
             role = roles[i]
             # TODO: think what to do with this warning
             co = role.unknown
-            cnts = (
-                subs[i]
-                .value_counts(dropna=False)
-                .reset_index()
-                .sort_values([i, "index"], ascending=[False, True])
-                .set_index("index")
-            )
-            vals = cnts[cnts[i] > co].index.values
+
+            if pandas_version < "2.0.0":
+                cnts = (
+                    subs[i]
+                    .value_counts(dropna=False)
+                    .reset_index()
+                    .sort_values([i, "index"], ascending=[False, True])
+                    .set_index("index")
+                )
+                t = cnts[i]
+            else:
+                cnts = subs[i].value_counts(dropna=False).sort_values(ascending=True)
+                t = cnts
+
+            vals = cnts[t > co].index.values
             self.dicts[i] = Series(np.arange(vals.shape[0], dtype=np.int32) + 1, index=vals)
 
         return self
@@ -258,13 +267,19 @@ class OHEEncoder(LAMLTransformer):
             fill_rate = self.total_feats_cnt / (self.total_feats_cnt - max_idx.shape[0] + max_idx.sum())
             self.make_sparse = fill_rate < 0.2
 
+        # from 1.2.0 "sparse" is deprecated
+        if sklearn_version >= "1.2.0":
+            sparse_ohe = {"sparse_output": self.make_sparse}
+        else:
+            sparse_ohe = {"sparse": self.make_sparse}
+
         # create ohe
         self.ohe = OneHotEncoder(
             categories=[np.arange(x, y + 1, dtype=np.int32) for (x, y) in zip(min_idx, max_idx)],
             # drop=np.ones(max_idx.shape[0], dtype=np.int32),
             dtype=self.dtype,
-            sparse=self.make_sparse,
             handle_unknown="ignore",
+            **sparse_ohe,
         )
         self.ohe.fit(data)
 
@@ -1023,10 +1038,17 @@ class OrdinalEncoder(LabelEncoder):
                 flg_number = False
 
             if not flg_number:
+
+                value_counts_index = "index"
+                if pandas_version >= "2.0.0":
+                    value_counts_index = "count"
+
                 co = role.unknown
                 cnts = subs[i].value_counts(dropna=True)
                 cnts = cnts[cnts > co].reset_index()
-                cnts = Series(cnts["index"].astype(str).rank().values, index=cnts["index"].values)
+                cnts = Series(
+                    cnts[value_counts_index].astype(str).rank().values, index=cnts[value_counts_index].values
+                ).drop_duplicates()
                 cnts = concat([cnts, Series([cnts.shape[0] + 1], index=[np.nan])])
                 self.dicts[i] = cnts
 
